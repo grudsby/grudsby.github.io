@@ -8,12 +8,16 @@ The goal of this post is to introduce data loading and model training through Py
 
 Clone the tutorials repo:
 
-> cd ~
-> git clone https://github.com/grudsby/tutorials
+{% highlight javascript %}
+'cd ~'
+'git clone https://github.com/grudsby/tutorials'
+{% endhighlight %}
 
 Navigate to alexnet-voc2007-pytorch
 
-> cd ~/tutorials/alexnet-voc2007-pytorch
+{% highlight javascript %}
+'cd ~/tutorials/alexnet-voc2007-pytorch'
+{% endhighlight %}
 
 
 This is a demo of all styled elements in Jekyll Now. 
