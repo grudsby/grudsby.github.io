@@ -4,7 +4,7 @@ title: About
 permalink: /about/
 ---
 
-We are roboticists from the CMU MRSD Class of 2018. A failed foray into logo design for our [robotic lawnmower](https://www.groundsbot.com) sparked the name Grudsby, which has come to symbolize not only our lawnmower but our endeavors and bamboozles during life at Carnegie Mellon.
+We are roboticists from the CMU MRSD Class of 2018. A failed foray into logo design for our [robotic lawnmower](https://mrsdprojects.ri.cmu.edu/2017teama/) sparked the name Grudsby, which has come to symbolize not only our lawnmower but our endeavors and bamboozles during life at Carnegie Mellon.
 
 ![_config.yml]({{ site.baseurl }}/images/grudsbo.png)
 
