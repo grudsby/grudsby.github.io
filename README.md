@@ -1,5 +1,10 @@
 Website for Grudsby.
 
-Edited using Prose: http://prose.io/#grudsby/grudsby.github.io/tree/master/_posts
+Best edited offline. Clone the repository, and install the github-pages ruby gem:
+
+gem install bundler
+gem install github-pages
+jekyll serve # Run this command from the root of grudsby.github.io repository.
 
 Built using Jekyll Now: https://github.com/barryclark/jekyll-now
+
