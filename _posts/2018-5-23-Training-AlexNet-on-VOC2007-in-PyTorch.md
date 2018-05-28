@@ -58,10 +58,7 @@ Go to 'Limits' and request a limit increase to 1 for the p2.xlarge instances.
 
 When you have access to a p2.xlarge instance, go to the EC2 Dashboard. 
 
-
-
-
-
+## Implementing Alexnet
 
 Download the VOC2007 dataset:
 
