@@ -64,6 +64,8 @@ Register for an AWS account: https://aws.amazon.com/
 
 Sign into the AWS console: https://aws.amazon.com/console/
 
+Go to your EC2 (Elastic Compute Cloud) dashboard by clicking 'Services' then under the 'Compute' heading, select 'EC2'.
+
 Go to 'Limits' and request a limit increase to 1 for the p2.xlarge instances.
 
 ![_config.yml]({{ site.baseurl }}/images/alexnet-voc2007-pytorch/limit_increase.png)
