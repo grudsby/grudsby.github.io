@@ -56,6 +56,16 @@ After modifying 'Dockerfile', recompile the container:
 ./03_setup_container.sh
 {% endhighlight %}
 
+Note that docker containers are typically "stateless". This means you are launching a docker container as an execution environment, not for data storage. This means you will either write data to a folder structure shared on your local drive, or you will write data to a sql server (in the case of web applications running docker.)
+
+The following code docker option in launch_container.sh takes care of mapping the tutorial folder on your local machine to the docker container. 
+
+{% highlight bash %}
+-v $(pwd)/../:/root/storage/tutorials
+{% endhighlight %}
+
+My typical develpment method is to launch the container and use it to run scripts, but edit the code directly on my machine rather than editing through the docker container. Updates to files are propagated instantly.
+
 ## Cloud Setup
 
 The cloud setup is optional, but is recommended to speed up training time. It is also good to get some exposure to working with AWS. The majority of develpment time should be spent on your local machine, as cloud instances for deep learning can be expensive.
@@ -147,6 +157,10 @@ source activate pytorch_p27
 pip install cython visdom Pillow Tensorboard
 {% endhighlight %}
 
+You will need to source the environment again when you restart your AWS instance.
+
+Make sure to stop your instance when you are finished using it. It can cost a dollar or two every hour running!
+
 ## Implementing Alexnet
 
 From this point on, it is assumed that you can follow along on, Docker, AWS, or both. I would recommend that you develop and test your code in Docker and train in AWS. 
@@ -197,7 +211,7 @@ if __name__ == "__main__":
 To run the code:
 
 {% highlight bash %}
-python code/alexnet.py ~/storage/tutorials/alexnet-voc2007-pytorch/data
+python code/alexnet.py ~/storage/tutorials/alexnet-voc2007-pytorch/data 5 20
 {% endhighlight %}
 
 This is a very basic structure, but will be instructive for implementing Alexnet from scratch. We will go through the following steps to implement the model:
@@ -206,11 +220,17 @@ This is a very basic structure, but will be instructive for implementing Alexnet
 
 2) Implement the model
 
-3) Create evaluation metrics
+3) Setup the optimizer and batch randomization
 
-4) Visualize model inputs and outputs and intermediate gradients
+4) Define the loss function
 
-5) Train and test the model
+5) Create evaluation metrics
+
+6) Visualize model inputs, outputs, and intermediate layers
+
+7) Train and test the model
+
+8) Load a pre-trained network
 
 ### Data Loading:
 
@@ -222,6 +242,7 @@ Implement the data loader.
 
 <details>
     <summary>Hint #1</summary>
+    <br/>
     Images are located in data/VOCdevkit/VOC2007/JPEGImages/ <br/>
     Image names are located in data/VOCdevkit/VOC2007/ImageSets/Main/"test/train/val".txt <br/>
     Ground truth labels are defined in data/VOCdevkit/VOC2007/ImageSets/Main/"class"_"test/train/val".txt <br/>
@@ -230,6 +251,7 @@ Implement the data loader.
     1: The image contains the class <br/>
     0: The class definition is uncertain <br/>
     -1: The image does not contain the class  <br/>
+    <br/>
 </details>
 
 <details>
@@ -396,7 +418,7 @@ if __name__ == "__main__":
 {% endhighlight %}
 </details>
 
-Run the code and make sure you don't get any errors. If you have any issues, use pdb.set_trace() before the line throwing and error and use the interactive debugger to test commands and fix the issue.
+Run the code and make sure you don't get any errors. If you have any issues, use pdb.set_trace() before the line throwing an error and use the interactive debugger to test commands and fix the issue.
 
 {% highlight bash %}
 python code/alexnet.py ~/storage/tutorials/alexnet-voc2007-pytorch/data
@@ -406,7 +428,7 @@ The data can take up to 70 seconds to parse, which is awful for debugging. We ca
 
 ### Model Implementation:
 
-It's time to talk about tensors. Tensors are multidimensional arrays. A vector is a first order tensor and a matrix is a second order tensor. In Pytorch, it is simple to convert from Numpy vectors to Pytorch tensors and back. Another important distinction is that Pytorch tensors can be store on CPU Ram or in the GPU. Training a network on the GPU while pulling data out of CPU Ram would be much slower, so all current training data should be held in GPU memory. Here are example commands for conversions: 
+It's time to talk about tensors. Tensors are multidimensional arrays. A vector is a first order tensor and a matrix is a second order tensor. In Pytorch, it is simple to convert from Numpy vectors to Pytorch tensors and back. Another important distinction is that Pytorch tensors can be stored on CPU Ram or in the GPU. Training a network on the GPU while pulling data out of CPU Ram would be too slow, so all current training data should be held in GPU memory. This is one of the reasons why we train in batches when computing gradients for back propogation (more on this later.) Here are example commands for conversions: 
 
 {% highlight python %}
 import torch
@@ -427,8 +449,8 @@ model = torch.nn.Sequential(
     nn.Conv2d(3, 16, kernel_size=8, stride=4, padding=2),
     nn.ReLU(inplace=True),
     nn.MaxPool2d(kernel_size=7, stride=3),
-    nn.Dropout(),
-    nn.Linear(256 * 6 * 6, 4096)
+    nn.Dropout(p=0.2),
+    nn.Linear(9600, 4096)
 )
 {% endhighlight %}
 
@@ -472,7 +494,88 @@ The output of the third convolution would be a tensor of shape:
 
 One of the interesting effects of Max Pooling is that it only allows gradients to propogate back through the maximum element from the kernel. This reduces the effect of vanishing gradients, concentrating gradient propagation in the most important elements rather than spreading them out across many elements. This also introduces a non-linearity into the model which helps to compensate for the linear nature of convolutions and fully connected layers.
 
+The fourth layer performs Dropout, which randomly turns weights off in the network. The parameter p is the probability that an element will be zeroed. Dropout allows the network to become more robust by forcing different areas within the network to learn redundant tasks. For example, a network trained with dropout would potentially have two hand detection neurons instead of a single activation for hands.
 
+Finally, the fifth layer is a fully connected layer. The input to a fully connect layer in Pytorch is a concatenation of the image width, height, and channel depth. These dimensions can be multiplied together to produce the correct number of inputs to the network, and the output value is equal to the number of neurons in the network. In the example model I intentionally entered an incorrect value for the input layer. The true number of inputs would be: 
+ 
+<details>
+    <summary>Click to reveal answer</summary>
+{% highlight python %}
+16*20*20 = 6400
+{% endhighlight %}
+</details>
+
+Note that in each of these operations, the dimension of the tensor corresponding to the number of images is unaffected, so each operation is performed on a per-image basis, preservering the number of images in the output.
+
+Build the model for Alexnet using the elements contained in the sample model.
+
+<details>
+    <summary>Hint: Full Alexnet Model Definition</summary>
+{% highlight python %}
+    model = torch.nn.Sequential(
+            torch.nn.Conv2d(3, 64, kernel_size=11, stride=4, padding=2),
+            torch.nn.ReLU(inplace=True),
+            torch.nn.MaxPool2d(kernel_size=3, stride=2),
+            torch.nn.Conv2d(64, 192, kernel_size=5, padding=2),
+            torch.nn.ReLU(inplace=True),
+            torch.nn.MaxPool2d(kernel_size=3, stride=2),
+            torch.nn.Conv2d(192, 384, kernel_size=3, padding=1),
+            torch.nn.ReLU(inplace=True),
+            torch.nn.Conv2d(384, 256, kernel_size=3, padding=1),
+            torch.nn.ReLU(inplace=True),
+            torch.nn.Conv2d(256, 256, kernel_size=3, padding=1),
+            torch.nn.ReLU(inplace=True),
+            torch.nn.MaxPool2d(kernel_size=3, stride=2),
+            torch.nn.Dropout(),
+            torch.nn.Linear(256 * 6 * 6, 4096),
+            torch.nn.ReLU(inplace=True),
+            torch.nn.Dropout(),
+            torch.nn.Linear(4096, 4096),
+            torch.nn.ReLU(inplace=True),
+            torch.nn.Linear(4096, NUM_CLASSES)
+    ).cuda()
+{% endhighlight %}
+</details>
+
+### Optimizer/Batch Randomization
+
+Stochastic gradient descent with momentum is a typical optimizer to use for debugging a network or checking baseline performance.  
+
+{% highlight python %}
+optimizer = torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
+{% endhighlight %}
+
+A better optimizer is the Adam optimizer (<https://arxiv.org/abs/1412.6980>.) Implement the Pytorch version of Adam from torch.optim.
+
+<details>
+    <summary>Hint: Adam Optimizer</summary>
+{% highlight python %}
+optimizer = torch.optim.Adam(model.parameters(), lr=0.001, betas=(0.9, 0.999), eps=1e-8, weight_decay=0.005, amsgrad=False)
+{% endhighlight %}
+</details>
+
+Batch randomization groups your training set into batches for processing on the GPU. With very large models you will come close to using up all of your GPU Ram, so it is important to make batch sizes appropriate for available Ram.
+
+For each epoch you will run as many batches as needed to evaluate the entire training set of images.
+
+
+
+### Loss Function:
+
+A loss function gives your network a measure of distance from the ground truth label. For 'One-hot' image classification, only one label is valid for each image. In this case it is best to use a softmax cross entropy loss. The softmax function combines each of the class outputs from the model and votes for the strongest output as the most likely class, zeroing the others. The cross entropy component of this loss function measures the distance between the output distribution of classes and the ground truth distribution.
+
+For PASCAL 2007 we may have multiple labels per image, so we will use a Binary Cross Entropy (BCE) loss function. Binary cross entropy uses a sigmoid at each class output and allows the outputs to determine their label likelihood independently. The output is a probability measuring how likely each label is based on the input image. This allows multiple classes to indicate a high likelihood at the output, but is a weaker assumption bias, making the network more difficult to train. The cross entropy component operates separately on each binary distribution output, and the resulting cross entropies can be summed or averaged. Averaging will tend to normalize data sets that have many images of one type of class and few of another.
+
+Pytorch has two options for BCE loss. In our model we have not included a sigmoid layer at the output, so the model outputs raw 'logits'. These logits, ranging from -infinity to infinity, must be converted to probabilities through a sigmoid function, but this is better done within the loss criterion for numerical stability. Implement the BCEWithLogitsLoss function: 
+
+<details>
+    <summary>Hint: Loss Function</summary>
+{% highlight python %}
+criterion = torch.nn.BCEWithLogitsLoss(weight=weights_train,size_average=True)
+{% endhighlight %}
+<br/>
+Note that we are passing in the full weights vector. When we implement batch randomization we will input only the vector of weights for a given batch.
+</details>
 
 ### Evaluation Metrics:
 
@@ -480,4 +583,4 @@ One of the interesting effects of Max Pooling is that it only allows gradients t
 
 ### Test/Train 
 
-
+### Pretrained Model 
